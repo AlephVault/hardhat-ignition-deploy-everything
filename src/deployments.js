@@ -226,7 +226,20 @@ async function runDeployEverythingModules(hre, reset, deploymentArgs) {
     const chainId = await hre.common.getChainId();
     for(let idx = 0; idx < length; idx++) {
         const module = importModule(hre, modules[idx].filename, modules[idx].external, chainId);
-        await hre.ignition.deploy(module, deploymentArgs);
+        try {
+            await hre.ignition.deploy(module, deploymentArgs);
+        } catch(err) {
+            console.log(`error: [${err.name}], [${err.message}]`);
+            if (err.name === "HardhatPluginError" &&
+                err.message.includes("Invariant violated: neither timeouts or failures")) {
+                console.warn(
+                    "Hardhat-ignition threw this error due to mishandling idempotency:",
+                    err.name, err.message
+                );
+            } else {
+                throw err;
+            }
+        }
     }
 }
 
