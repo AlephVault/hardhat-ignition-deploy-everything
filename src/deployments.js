@@ -233,7 +233,7 @@ async function runDeployEverythingModules(hre, reset, deploymentArgs) {
     for(let idx = 0; idx < length; idx++) {
         const module = modules[idx].module;
         try {
-            if (!hre.silent) console.log(`>>> Deploying ${module.external ? 'external' : 'internal'} module:`, module.filename);
+            if (!hre.silent) console.log(`>>> Deploying ${modules[idx].external ? 'external' : 'internal'} module:`, modules[idx].filename);
             await hre.ignition.deploy(module, deploymentArgs);
         } catch(err) {
             if (!hre.silent) console.log(`error: [${err.name}], [${err.message}]`);
