@@ -165,7 +165,7 @@ async function listDeployEverythingModules(hre) {
         let moduleResults = null;
         let module = null;
         try {
-            const module = importModule(hre, filename, external, chainId);
+            module = importModule(hre, filename, external, chainId);
             moduleResults = Object.values(module.results || {}).map((f) => f.id);
         } catch {}
 
