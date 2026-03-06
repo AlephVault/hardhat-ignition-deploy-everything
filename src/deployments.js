@@ -162,13 +162,14 @@ function removeDeployEverythingModule(hre, file, external) {
 async function listDeployEverythingModules(hre) {
     const chainId = await hre.common.getChainId();
     return loadDeployEverythingSettings(hre).contents.map(({filename, external}) => {
-        let moduleResults = [];
+        let moduleResults = null;
+        let module = null;
         try {
             const module = importModule(hre, filename, external, chainId);
             moduleResults = Object.values(module.results || {}).map((f) => f.id);
         } catch {}
 
-        return {filename, external, moduleResults};
+        return {filename, external, moduleResults, module};
     });
 }
 
@@ -193,19 +194,25 @@ function addChainId(filename, chainId) {
  * @returns {*} The loaded ignition module.
  */
 function importModule(hre, filename, external, chainId) {
+    if (!hre.silent) console.log(`>>> Importing ${external ? 'external' : 'internal'} module:`, filename);
+
     try {
-        const required = external
-            ? require(addChainId(filename, chainId))
-            : require(addChainId(path.resolve(hre.config.paths.root, filename), chainId));
+        const path_ = external
+            ? addChainId(filename, chainId)
+            : addChainId(path.resolve(hre.config.paths.root, filename), chainId);
+        if (!hre.silent) console.log(">>> Trying path:", path_);
+        const required = require(path_);
         return required.default === undefined ? required : required.default;
     } catch {
-        // Nothing here. Continue with the general load.
+        if (!hre.silent) console.error(">>> Could not load the module. Ensure it's a valid file and a valid Hardhat Ignition module.");
     }
 
     try {
-        const required = external
-            ? require(filename)
-            : require(path.resolve(hre.config.paths.root, filename));
+        const path_ = external
+            ? filename
+            : path.resolve(hre.config.paths.root, filename);
+        if (!hre.silent) console.log(">>> Trying path:", path_);
+        const required = require(path_);
         return required.default === undefined ? required : required.default;
     } catch(e) {
         throw new Error(`Could not import the ${external ? "external" : "in-project"} module: ${filename}.`);
@@ -220,19 +227,19 @@ function importModule(hre, filename, external, chainId) {
  * @returns {Promise<void>} Nothing (async function).
  */
 async function runDeployEverythingModules(hre, reset, deploymentArgs) {
-    const modules = await listDeployEverythingModules(hre);
+    const modules = await listDeployEverythingModules({...hre, silent: false});
     const length = modules.length;
     if (!!reset) await hre.ignition.resetDeployment(deploymentArgs.deploymentId, hre);
-    const chainId = await hre.common.getChainId();
     for(let idx = 0; idx < length; idx++) {
-        const module = importModule(hre, modules[idx].filename, modules[idx].external, chainId);
+        const module = modules[idx].module;
         try {
+            if (!hre.silent) console.log(`>>> Deploying ${module.external ? 'external' : 'internal'} module:`, module.filename);
             await hre.ignition.deploy(module, deploymentArgs);
         } catch(err) {
-            console.log(`error: [${err.name}], [${err.message}]`);
+            if (!hre.silent) console.log(`error: [${err.name}], [${err.message}]`);
             if (err.name === "HardhatPluginError" &&
                 err.message.includes("Invariant violated: neither timeouts or failures")) {
-                console.warn(
+                if (!hre.silent) console.warn(
                     "Hardhat-ignition threw this error due to mishandling idempotency:",
                     err.name, err.message
                 );

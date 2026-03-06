@@ -85,7 +85,7 @@ async function remove(hre, module, external, forceNonInteractive) {
  * @returns {Promise<void>} Nothing (async function).
  */
 async function list(hre) {
-    const contents = await listDeployEverythingModules(hre);
+    const contents = await listDeployEverythingModules({...hre, silent: true});
     if (!contents.length) {
         console.log("There are no modules added to the full deployment.");
     } else {
@@ -94,8 +94,14 @@ async function list(hre) {
     contents.forEach((e) => {
         const prefix = e.external ? "External file" : "Project file";
         console.log(`- ${prefix}: ${e.filename}`);
-        if (e.moduleResults && e.moduleResults.length) {
-            console.log(`  Results: {${e.moduleResults.join(", ")}}`);
+        if (e.moduleResults) {
+            if (e.moduleResults.length) {
+                console.log(`  Results: {${e.moduleResults.join(", ")}}`);
+            } else {
+                console.log("  No results");
+            }
+        } else {
+            console.log("  Error loading the module. Ensure it's a valid file and a valid Hardhat Ignition module.");
         }
     })
 }
@@ -224,7 +230,7 @@ extendEnvironment((hre) => {
     hre.ignition.everything = {
         addDeployEverythingModule: (file, external) => addDeployEverythingModule(hre, file, external),
         removeDeployEverythingModule: (file, external) => removeDeployEverythingModule(hre, file, external),
-        listDeployEverythingModules: () => listDeployEverythingModules(hre),
+        listDeployEverythingModules: ({ silent = true }) => listDeployEverythingModules({...hre, silent}),
         isModuleInDeployEverything: (file, external) => isModuleInDeployEverything(
             hre, file, external
         ),

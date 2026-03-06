@@ -144,7 +144,7 @@ This is done in two alternatives:
 
    - `addDeployEverythingModule(file: string, external: boolean)` to add one file (in-project or in-external-package).
    - `removeDeployEverythingModule(file: string, external: boolean)` to remove it.
-   - `listDeployEverythingModules()` to list them (it is an asynchronous function).
+   - `listDeployEverythingModules({ silent = true })` to list them (it is an asynchronous function).
    - `isModuleInDeployEverything(file: string, external: boolean)` to tell whether it is added (this does not test the
      conditional modules, however).
    - `runDeployEverythingModules(reset, args)` to execute them (it is an asynchronous function).
