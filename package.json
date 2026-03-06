@@ -1,6 +1,6 @@
 {
   "name": "hardhat-ignition-deploy-everything",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "description": "A hardhat plugin providing the ability to list and manage a bunch of hardhat-ignition deployments to execute at once (even conditional deployment modules)",
   "main": "src/index.js",
   "scripts": {
