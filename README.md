@@ -1,34 +1,51 @@
 # hardhat-ignition-deploy-everything
-A hardhat plugin providing the ability to list and manage a bunch of hardhat-ignition deployments to execute at once
-(even conditional deployment modules).
+
+A Hardhat 3 plugin for listing, managing, and executing multiple Hardhat Ignition deployment modules in one run,
+including chain-specific module variants.
 
 # Installation
-Run this command to install it from NPM:
+
+Install the Hardhat 3 package and its peer helper plugins:
 
 ```shell
-npm install --save-dev hardhat-common-tools@^1.4.0 hardhat-enquirer-plus@^1.4.0 hardhat-ignition-deploy-everything@^1.1.2
+npm install --save-dev hardhat-ignition-deploy-everything@^3.0.0 hardhat-common-tools@^3.0.0 hardhat-enquirer-plus@^3.0.0
 ```
+
+This package runs on top of Hardhat Ignition. Use it in a project that also registers an ethers or viem Hardhat 3
+toolbox, such as `@nomicfoundation/hardhat-toolbox-mocha-ethers` or `@nomicfoundation/hardhat-toolbox-viem`.
 
 # Usage
-This is a hardhat plugin, so the first thing to do is to install it in your hardhat.config.ts file:
+
+Hardhat 3 projects are ESM projects. Register the plugin in `hardhat.config.js` or `hardhat.config.ts` with
+`defineConfig` and a `plugins` array:
 
 ```javascript
-require("hardhat-common-tools");
-require("hardhat-enquirer-plus");
-require("hardhat-ignition-deploy-everything");
+import { defineConfig } from "hardhat/config";
+import hardhatToolboxMochaEthers from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
+import hardhatCommonTools from "hardhat-common-tools";
+import hardhatEnquirerPlus from "hardhat-enquirer-plus";
+import hardhatIgnitionDeployEverything from "hardhat-ignition-deploy-everything";
+
+export default defineConfig({
+  plugins: [
+    hardhatToolboxMochaEthers,
+    hardhatCommonTools,
+    hardhatEnquirerPlus,
+    hardhatIgnitionDeployEverything
+  ],
+  solidity: "0.8.24"
+});
 ```
 
-Once there, you can make use of it (this supports both viem-enabled and ethers-enabled projects):
+If another registered plugin already loads `hardhat-common-tools` and `hardhat-enquirer-plus`, do not register them a
+second time. Hardhat 3 rejects duplicate plugin ids.
 
-This package works entirely on top of hardhat-ignition, so you'll also need it (along with the viem/ethers plugin) in
-your project.
-
-_There are some arguments not documented here: most of them belongs to the ignition package and some others belong to
+_There are some arguments not documented here: most of them belong to the ignition package and some others belong to
 this one:_
 
   - `--force-non-interactive` causes the command to fail if it starts prompting for data to the user.
   - `--external` (in add/remove/check sub-commands) tells that the involved file does not belong to the project but it
-    is, instead, a package-path (suitable for a direct `require` call without `./` prefix) file.
+    is, instead, a package-path suitable for an ESM import without `./` prefix.
 
 ## Listing all the registered ignition modules
 
@@ -40,7 +57,7 @@ npx hardhat ignition deploy-everything list
 
 You will see something like this one (or a message telling that no modules are registered):
 
-```
+```text
 These modules are added to the full deployment:
 - Project file: ignition/modules/Lock.js
   Results: {LockModule#Lock}
@@ -48,9 +65,8 @@ These modules are added to the full deployment:
   Results: {MyModule#MyContract}
 ```
 
-In this example, my deploy-everything settings are set to only two modules: The Lock.js module (which comes by default
-in new JavaScript projects; it will be Lock.ts on TypeScript projects) and the MyModule.js file (which stands for an
-example module with just one contract).
+In this example, the deploy-everything settings are set to only two modules: the `Lock.js` module from a JavaScript
+project, or `Lock.ts` in a TypeScript project, and the `MyModule.js` file.
 
 ## Registering an ignition module into the deploy-everything settings
 
@@ -78,7 +94,7 @@ npx hardhat ignition deploy-everything check --module ignition/modules/SomeOther
 
 ## Executing the whole deploy-everything settings
 
-This implies executing all the modules defined there. Since this is already on top of hardhat-ignition, the modules
+This implies executing all the modules defined there. Since this is already on top of Hardhat Ignition, the modules
 that were previously run are kept and not re-run again.
 
 The command to execute the full deployment is:
@@ -87,74 +103,65 @@ The command to execute the full deployment is:
 npx hardhat ignition deploy-everything run
 ```
 
-If you want to set the parameters, use the `--parameters` argument for that. Actually: also take a look to the help:
+If you want to set parameters, use the `--parameters` argument. The task help lists the Ignition-related optional
+arguments, such as `--reset` and `--verify`:
 
 ```shell
-npx hardhat ignition deploy-everything run --help
+npx hardhat ignition deploy-everything --help
 ```
-
-It will list all the hardhat-ignition-related optional arguments (e.g. --reset and --verify). They will work as
-expected/detailed in hardhat-ignition's documentation.
 
 ## Network-dependent deployments
 
-While hardhat-ignition does not support network-dependent or network-conditional deployments, this is a useful feature
-when dealing with multiple chains.
+While Hardhat Ignition does not directly model network-conditional deployment modules, deploy-everything supports that
+workflow while executing the `run` action.
 
-For example, it might happen that you'd like to have a Chainlink's PriceFeed contract in your local network, but they
-are only present in external networks (testnets or mainnets, and not all of them). In this case, Chainlink provides a
-mock (as of today: something they call Aggregator V3 Mock). Still, you have to be careful when deploying it vs. when
-dealing with an external reference (this, in testnets and mainnets) when not having something like network-conditional
-deployments.
+For example, it might happen that you want a Chainlink Price Feed mock in a local network but an existing external
+reference in a testnet or mainnet. To make one module conditional by chain:
 
-However, deploy-everything supports network-conditional deployments while executing the `run` task. In order to make
-use of this feature for one (or more, perhaps) of your modules, you have to follow these steps:
+1. Create the default module, for example `MyAwesomeModule.js` or `MyAwesomeModule.ts`.
+2. Create chain-specific variants named `MyAwesomeModule-XXXX.js`, where `XXXX` is the target chain id. For Polygon
+   Amoy, use `MyAwesomeModule-80002.js`.
+3. Keep the internal Ignition module name the same across variants, for example:
 
-1. Let's say that you have your `AwesomeInterface` which is implemented in some testnet/mainnet you care about.
-2. Let's also say that you have your `AwesomeMock` implementing the `AwesomeInterface`.
-   - This is a local contract you want to use in your local network (that you'll somehow mock).
-3. You'll create a deployment module for your mock (as a new contract).
-   - You'll name it `MyAwesomeModule` and will typically make use of `m.contract` future, using the
-     `AwesomeMock` artifact. The extension might be `.ts` or `.js` depending on your needs.
-4. You'll create a deployment module for the existing contracts:
-   - You'll name it `MyAwesomeModule-XXXX` where XXXX is the intended target chain's id. For example, for Polygon Amoy
-     your module file will be named: `MyAwesomeModule-80002.js` (or ending in `.ts` if TypeScript).
-   - __However__ the internal module name will still be `MyAwesomeModule` to keep conditional compatibility with the
-     ignition deployment process (i.e. `module.exports = buildModule("MyAwesomeModule", ...);`) in each case.
-   - The contents, in this case, will involve the `m.contractAt` call instead.
-   - You can have conditional modules for _many_ chain ids, not just one. For example: you might have modules for
-     networks: Ethereum Mainnet (1), Polygon Mainnet (137), Ethereum Sepolia Testnet (11155111) and Polygon Amoy
-     Testnet (80002), for a total of 4 extra conditional modules, while also needing the base, non-conditional, module.
-5. You'll add all the modules you want to the deploy-everything settings, _and only the MyAwesomeModule module_ (as if
-   you were not doing conditional deployment at all).
-6. When you execute the `run` task, you'll specify the `--network` option (and perhaps --deployment-id) as usual with
-   ignition deployments. If the chosen network matches the id of a conditional module (in our example: the Amoy / 80002
-   chain id) _then the alternate module (in our example: MyAwesomeModule-80002.js) will be executed instead of the main
-   one (in our example: MyAwesomeModule.js)_.
+   ```javascript
+   import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
+
+   export default buildModule("MyAwesomeModule", (m) => {
+     return {
+       contract: m.contractAt("AwesomeInterface", "0x...")
+     };
+   });
+   ```
+
+4. Add only the default module to `ignition/deploy-everything.json`.
+5. Run the task with `--network`. If the selected network chain id matches a variant file, that variant is used instead
+   of the default module.
 
 ## Manually invoking the deploy-everything utilities
 
-While the tasks do the job, you can invoke the utilities to deal with `deploy-everything` in your own code.
+Hardhat 3 plugins cannot mutate the Hardhat Runtime Environment with `extendEnvironment`. Import the utilities directly
+when you need to call them from your own code:
 
-This is done in two alternatives:
+```javascript
+import {
+  addDeployEverythingModule,
+  isModuleInDeployEverything,
+  listDeployEverythingModules,
+  removeDeployEverythingModule,
+  runDeployEverythingModules
+} from "hardhat-ignition-deploy-everything";
+```
 
-1. Run them as a hardhat task (scope: `ignition`, task: `deploy-everything`, first positional argument: either `"list"`,
-   `"check"`, `"add"`, `"remove"` or `"run"`).
-2. Run them through direct/manual `hre.ignition.deployEverything` utilities:
+Available utilities:
 
-   - `addDeployEverythingModule(file: string, external: boolean)` to add one file (in-project or in-external-package).
-   - `removeDeployEverythingModule(file: string, external: boolean)` to remove it.
-   - `listDeployEverythingModules({ silent = true })` to list them (it is an asynchronous function).
-   - `isModuleInDeployEverything(file: string, external: boolean)` to tell whether it is added (this does not test the
-     conditional modules, however).
-   - `runDeployEverythingModules(reset, args)` to execute them (it is an asynchronous function).
-     - `reset` tells whether the deployment will be reset (for the current --network / --deployment-id).
-     - `args` are directly passed to `hre.ignition.deploy` calls, properly including the arguments, if any.
-     - Notice how `verify` is not passed here. This is an external ignition task. Invoke it with:
+  - `addDeployEverythingModule(hre, file, external)` adds one file, either in-project or from an external package.
+  - `removeDeployEverythingModule(hre, file, external)` removes one file.
+  - `listDeployEverythingModules({ ...hre, silent: true })` lists configured modules and their result ids.
+  - `isModuleInDeployEverything(hre, file, external)` checks whether a module is registered.
+  - `runDeployEverythingModules(hre, reset, args)` executes the configured modules.
 
-       ```javascript
-       await hre.run(
-            { scope: "ignition", task: "verify" },
-            { deploymentId: someOptionalDeploymentId }
-        );
-       ```
+To verify after deployment, invoke Hardhat's Ignition verify task:
+
+```javascript
+await hre.tasks.getTask(["ignition", "verify"]).run({ deploymentId });
+```

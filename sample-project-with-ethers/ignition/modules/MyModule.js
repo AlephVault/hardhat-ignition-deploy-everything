@@ -1,8 +1,6 @@
+import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
-
-const { buildModule } = require("@nomicfoundation/hardhat-ignition/modules");
-
-module.exports = buildModule("MyModule", (m) => {
+export default buildModule("MyModule", (m) => {
   // You can pass parameters (e.g. "foo") to this module and attend
   // or capture them by using line like this one:
   //
